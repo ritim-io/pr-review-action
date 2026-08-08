@@ -1,0 +1,97 @@
+name: Ritim performance report
+description: Audit a pull request's preview deployment and comment the Core Web Vitals result.
+author: Ritim
+
+branding:
+  icon: activity
+  color: purple
+
+inputs:
+  project-secret:
+    description: >-
+      Ritim project secret (psk_…). Store it as a repository secret; never
+      inline it. Required — the step fails without it.
+    required: true
+
+  preview-url:
+    description: >-
+      Absolute http(s) URL of the deployment to audit. It must be publicly
+      reachable — Google fetches it, so deployment protection or a password wall
+      makes every audit fail. Required — the step fails without it.
+    required: true
+
+  domain:
+    description: >-
+      Which of the project's sites this pull request is work on — the production
+      host (acme.com), not the preview one. Optional for a project with a single
+      site; required when it has more than one, and the error names the
+      candidates. A full URL is accepted.
+    required: false
+
+  api-url:
+    description: Ritim API base URL. Override for staging.
+    required: false
+    default: https://api.ritim.io
+
+  github-token:
+    # Load-bearing default. Expressions resolve in input defaults, and without
+    # this the token is not in the action's environment at all — GitHub does not
+    # inject it. With it, the customer never passes a token.
+    description: Token used to post the comment.
+    required: false
+    default: ${{ github.token }}
+
+  strategies:
+    description: >-
+      Comma-separated: mobile, desktop. Mobile alone takes 30-50s; adding
+      desktop roughly doubles it, because the two run sequentially against
+      Google's rate limit.
+    required: false
+    default: mobile
+
+  comment:
+    description: >-
+      Post or update the pull request comment. Requires `permissions:
+      pull-requests: write` on the workflow — without it the action logs a
+      warning and skips the comment, it does not fail.
+    required: false
+    default: 'true'
+
+  wait:
+    description: >-
+      Wait for the audit to finish. Set false to fire and forget — the result is
+      still recorded, but this run will not comment.
+    required: false
+    default: 'true'
+
+  timeout:
+    description: >-
+      Seconds to wait for the audit before giving up on this run. The default
+      clears mobile and desktop together; a shorter one warns instead of
+      commenting when the audit outlives it.
+    required: false
+    default: '180'
+
+  fail-on-error:
+    description: >-
+      Fail the step when the audit fails or Ritim rejects the report. Off by
+      default: this action is advisory, and a performance check that breaks a
+      build the first time a preview is slow to come up is a tool people
+      delete. A missing project-secret or preview-url fails regardless; a
+      missing comment permission never does.
+    required: false
+    default: 'false'
+
+outputs:
+  trigger-id:
+    description: The audit's id.
+  status:
+    description: running, done, or failed.
+  result:
+    description: The result document, as JSON.
+  comment-id:
+    description: The comment created or updated, when any.
+
+runs:
+  using: node24
+  main: dist/index.js

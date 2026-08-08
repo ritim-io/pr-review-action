@@ -1,0 +1,39 @@
+# CI for the action's own repository, once this package is copied out.
+#
+# It does nothing in the Ritim monorepo — GitHub only runs workflows from the
+# repository root — and travels with the package so the destination repo has it
+# from the first commit.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+
+      # The bundle is the published artifact and GitHub installs nothing, so a
+      # `dist/` that does not match the source ships behaviour nobody reviewed.
+      # This is the only thing standing between a merged PR and that.
+      - name: dist/ is up to date
+        run: |
+          if [ -n "$(git status --porcelain dist)" ]; then
+            echo "::error::dist/ is stale. Run 'npm run build' and commit the result."
+            git --no-pager diff --stat dist
+            exit 1
+          fi
