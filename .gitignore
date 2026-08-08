@@ -3,7 +3,6 @@ node_modules/
 .pnpm-store/
 
 # build output
-dist/
 build/
 # `pnpm pack` output, from inspecting what the SDK would publish
 *.tgz
