@@ -1,9 +1,10 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 
-import { RitimApiError, RitimClient } from './api.js';
+import { RitimApiError, RitimClient, RitimNetworkError } from './api.js';
 import { renderComment, upsertComment } from './comment.js';
 import { SCHEMA_VERSION, type AuditStrategy, type PullRequestState } from './contract.js';
+import * as log from './log.js';
 
 /**
  * Report a pull request's preview build to Ritim, wait for the audit, comment
@@ -119,7 +120,33 @@ function isFromFork(pr: {
  */
 let canComment = true;
 
+/**
+ * What the runner was, before anything can go wrong.
+ *
+ * Printed unconditionally and first, because every bug report about this Action
+ * begins with a question this block answers: which version ran, on what Node,
+ * against which event.
+ */
+function logEnvironment(): void {
+  log.details('Environment', {
+    action: `${process.env.GITHUB_ACTION_REPOSITORY ?? 'ritim-io/pr-review-action'}@${process.env.GITHUB_ACTION_REF ?? 'unknown'}`,
+    node: process.version,
+    platform: `${process.platform} ${process.arch}`,
+    runner: process.env.RUNNER_NAME ?? 'unknown',
+    repository: process.env.GITHUB_REPOSITORY,
+    event: `${github.context.eventName}${github.context.payload.action ? `.${github.context.payload.action}` : ''}`,
+    workflow: github.context.workflow,
+    runId: github.context.runId,
+    // A proxy in the path changes what `fetch` does; an empty value here is
+    // itself the answer when the request fails to connect.
+    proxy: process.env.HTTPS_PROXY ?? process.env.https_proxy ?? '(none)',
+    noProxy: process.env.NO_PROXY ?? process.env.no_proxy ?? '(none)',
+  });
+}
+
 async function run(): Promise<void> {
+  logEnvironment();
+
   const pr = github.context.payload.pull_request;
 
   if (!pr) {
@@ -140,7 +167,7 @@ async function run(): Promise<void> {
     return;
   }
 
-  const apiUrl = core.getInput('api-url') || 'https://api.ritim.io';
+  const apiUrl = core.getInput('api-url').trim() || 'https://api.ritim.io';
   const secret = core.getInput('project-secret').trim();
   const previewUrl = core.getInput('preview-url').trim();
   const domain = core.getInput('domain').trim();
@@ -148,6 +175,31 @@ async function run(): Promise<void> {
   const timeoutSeconds = timeoutInput();
 
   canComment = booleanInput('comment', true);
+
+  // Belt and braces. The secret should already be a repository secret, but a
+  // user testing with a literal value should not have it echoed by our logs.
+  if (secret) core.setSecret(secret);
+
+  log.details('Inputs', {
+    'api-url': apiUrl,
+    'preview-url': previewUrl || '(missing)',
+    'project-secret': describeSecret(secret),
+    domain: domain || '(unset — the project must have a single site)',
+    strategies: core.getInput('strategies').trim() || 'mobile (default)',
+    wait: shouldWait,
+    timeout: `${timeoutSeconds}s`,
+    comment: canComment,
+    'github-token': core.getInput('github-token') ? 'present' : '(missing)',
+    'fail-on-error': failOnError(),
+  });
+
+  log.details('Pull request', {
+    number: pr.number,
+    state: toState(pr as Parameters<typeof toState>[0]),
+    author: String(pr.user?.login ?? ''),
+    headSha: String(pr.head?.sha ?? '').slice(0, 12),
+    baseRepo: pr.base?.repo?.full_name,
+  });
 
   // The two hard failures. Nothing this action does is possible without them,
   // and a green step would say the report ran when it never could.
@@ -164,39 +216,65 @@ async function run(): Promise<void> {
     return;
   }
 
-  core.notice('ready to invoke ' + previewUrl + ' on ' + apiUrl)
-  
-  const strategies = parseStrategies(core.getInput('strategies'));
-  const client = new RitimClient(apiUrl, secret);
-
-  const report = await client.report({
-    schemaVersion: SCHEMA_VERSION,
-    repository: `${github.context.repo.owner}/${github.context.repo.repo}`,
-    number: pr.number,
-    title: String(pr.title ?? ''),
-    state: toState(pr as Parameters<typeof toState>[0]),
-    author: String(pr.user?.login ?? ''),
-    openedAt: String(pr.created_at ?? new Date().toISOString()),
-    commitSha: String(pr.head?.sha ?? ''),
-    previewUrl,
-    // Omitted rather than sent empty, so an unset `${{ vars.X }}` does not look
-    // deliberate.
-    ...(domain ? { domain } : {}),
-    ...(strategies ? { strategies } : {}),
-  });
-
-  core.setOutput('trigger-id', report.triggerId);
-  core.info(`Reported ${report.triggerId}${report.deduplicated ? ' (already measured)' : ''}`);
-
-  if (!shouldWait) {
-    core.setOutput('status', report.status);
+  // Caught here rather than as a malformed request later: `new URL()` inside
+  // the client would fail with "Invalid URL" and no clue which input was wrong.
+  if (!isHttpUrl(apiUrl)) {
+    core.setFailed(`\`api-url\` must be an absolute http(s) URL, got "${apiUrl}".`);
     return;
   }
 
-  const trigger = await client.waitForTrigger(report.triggerId, timeoutSeconds * 1000);
+  if (!isHttpUrl(previewUrl)) {
+    core.setFailed(
+      `\`preview-url\` must be an absolute http(s) URL, got "${previewUrl}". ` +
+        'A deploy step that produced no URL usually leaves this empty or set to a bare host.',
+    );
+    return;
+  }
+
+  const strategies = parseStrategies(core.getInput('strategies'));
+  const client = new RitimClient(apiUrl, secret);
+
+  const report = await log.step(`Report the preview to ${apiUrl}`, () =>
+    client.report({
+      schemaVersion: SCHEMA_VERSION,
+      repository: `${github.context.repo.owner}/${github.context.repo.repo}`,
+      number: pr.number,
+      title: String(pr.title ?? ''),
+      state: toState(pr as Parameters<typeof toState>[0]),
+      author: String(pr.user?.login ?? ''),
+      openedAt: String(pr.created_at ?? new Date().toISOString()),
+      commitSha: String(pr.head?.sha ?? ''),
+      previewUrl,
+      // Omitted rather than sent empty, so an unset `${{ vars.X }}` does not
+      // look deliberate.
+      ...(domain ? { domain } : {}),
+      ...(strategies ? { strategies } : {}),
+    }),
+  );
+
+  core.setOutput('trigger-id', report.triggerId);
+  log.details('Reported', {
+    triggerId: report.triggerId,
+    pullRequestId: report.pullRequestId,
+    status: report.status,
+    deduplicated: report.deduplicated
+      ? 'yes — this commit was already measured, so no new audit was started'
+      : 'no',
+  });
+
+  if (!shouldWait) {
+    core.setOutput('status', report.status);
+    log.info('`wait` is false, so this run stops here. The audit continues on Ritim.');
+    return;
+  }
+
+  const trigger = await log.step('Wait for the audit', () =>
+    client.waitForTrigger(report.triggerId, timeoutSeconds * 1000),
+  );
 
   core.setOutput('status', trigger.status);
   core.setOutput('result', JSON.stringify(trigger.result));
+  logOutcomes(trigger);
 
   if (trigger.status === 'running') {
     core.warning(
@@ -210,10 +288,58 @@ async function run(): Promise<void> {
   // says what this run would say.
   if (canComment && !report.deduplicated) {
     await comment(trigger);
+  } else {
+    log.info(
+      canComment
+        ? 'Comment skipped: this commit was already measured, so the existing comment stands.'
+        : 'Comment skipped: `comment` is false.',
+    );
   }
 
   if (trigger.status === 'failed') {
     soft(`The audit failed: ${trigger.error ?? 'no result was produced'}`);
+  }
+}
+
+/** Absolute http(s), the only thing either side can do anything with. */
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/** Shape and length only — enough to tell a wrong secret from an empty one. */
+function describeSecret(secret: string): string {
+  if (!secret) return '(missing)';
+  if (!secret.startsWith('psk_'))
+    return `set, ${secret.length} chars, but does not start with "psk_" — is this the right secret?`;
+  return `set, ${secret.length} chars, psk_…`;
+}
+
+/** Per-strategy results, so a half-failed audit is readable without the JSON. */
+function logOutcomes(trigger: { status: string; error: string | null; result: unknown }): void {
+  const outcomes = (trigger.result as { outcomes?: unknown[] } | null)?.outcomes ?? [];
+
+  log.details('Audit', {
+    status: trigger.status,
+    error: trigger.error ?? undefined,
+    strategies: outcomes.length === 0 ? '(none reported)' : undefined,
+  });
+
+  for (const outcome of outcomes as {
+    strategy: string;
+    ok: boolean;
+    error?: string;
+    result?: { performanceScore?: number; finalUrl?: string };
+  }[]) {
+    log.info(
+      outcome.ok
+        ? `${outcome.strategy}: score ${outcome.result?.performanceScore ?? 'n/a'} for ${outcome.result?.finalUrl ?? ''}`
+        : `${outcome.strategy}: failed — ${outcome.error ?? 'no reason given'}`,
+    );
   }
 }
 
@@ -229,6 +355,8 @@ async function comment(trigger: Parameters<typeof renderComment>[0]): Promise<vo
 
   try {
     const octokit = github.getOctokit(token);
+    log.info(`Posting the comment on ${github.context.repo.owner}/${github.context.repo.repo}#${github.context.payload.pull_request?.number}.`);
+
     const id = await upsertComment(
       octokit as unknown as Parameters<typeof upsertComment>[0],
       {
@@ -240,7 +368,10 @@ async function comment(trigger: Parameters<typeof renderComment>[0]): Promise<vo
     );
 
     core.setOutput('comment-id', id);
+    log.info(`Comment ${id} is up to date.`);
   } catch (error) {
+    log.debug(`Commenting failed:\n${log.describeError(error)}`);
+
     /*
      * The first-install failure, every time, and GitHub's own message does not
      * name the missing permission. Deliberately not routed through `soft()`:
@@ -269,11 +400,37 @@ function isPermissionDenied(error: unknown): boolean {
   return status === 403 || status === 404;
 }
 
-run().catch((error: unknown) => {
-  soft(error instanceof RitimApiError ? ritimMessage(error) : errorMessage(error));
-});
+run()
+  .then(() => {
+    log.info('Done.');
+  })
+  .catch((error: unknown) => {
+    // The full chain goes to the log unconditionally; the annotation gets the
+    // one sentence a user can act on. Before this existed, a DNS failure and an
+    // expired certificate both surfaced as "Warning: fetch failed".
+    core.startGroup('✗ Failure detail');
+    core.info(log.describeError(error));
+    core.endGroup();
+
+    soft(errorMessage(error));
+  });
 
 function errorMessage(error: unknown): string {
+  if (error instanceof RitimApiError) return ritimMessage(error);
+
+  if (error instanceof RitimNetworkError) {
+    const hint = log.networkHint(error);
+    const cause = error.cause instanceof Error ? error.cause.message : undefined;
+
+    return [
+      `${error.message}: ${cause ?? 'the connection failed'}.`,
+      hint,
+      'The expanded "Failure detail" group above has the underlying error code.',
+    ]
+      .filter(Boolean)
+      .join(' ');
+  }
+
   return error instanceof Error ? error.message : String(error);
 }
 

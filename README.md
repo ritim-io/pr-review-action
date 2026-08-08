@@ -140,6 +140,32 @@ uses a different curve for mobile than for desktop.
 These are synthetic measurements taken on Google's hardware. They are not the
 real-user data the rest of Ritim reports, and the two will not agree.
 
+## Troubleshooting
+
+The step logs every phase as a collapsible group — the environment it ran in,
+the resolved inputs, each HTTP request with its status and duration, each poll,
+and the comment. Open the failing group first.
+
+**`Warning: fetch failed`** never appears on its own any more. A request that
+could not reach Ritim now fails with the host, the underlying error code, and a
+`✗ Failure detail` group holding the whole `cause` chain. The codes worth
+recognising:
+
+| Code | Meaning |
+| --- | --- |
+| `ENOTFOUND` | `api-url` does not resolve — usually a typo. |
+| `ECONNREFUSED` | Host resolves, nothing listening on that port. |
+| `UND_ERR_CONNECT_TIMEOUT` | A firewall or IP allowlist is dropping GitHub runners. |
+| `CERT_HAS_EXPIRED`, `DEPTH_ZERO_SELF_SIGNED_CERT` | TLS could not be verified — a proxy, or a self-hosted Ritim. |
+
+Connection failures are retried three times with backoff before the step gives
+up; an HTTP error status is not retried, because the server has already
+answered.
+
+For request and response bodies, re-run with debug logging on: set the
+repository secret `ACTIONS_STEP_DEBUG` to `true`, or use **Re-run with debug
+logging** in the Actions UI.
+
 ## Staging
 
 ```yaml

@@ -132,7 +132,7 @@ var require_tunnel = __commonJS({
         connectOptions.headers = connectOptions.headers || {};
         connectOptions.headers["Proxy-Authorization"] = "Basic " + new Buffer(connectOptions.proxyAuth).toString("base64");
       }
-      debug2("making CONNECT request");
+      debug3("making CONNECT request");
       var connectReq = self.request(connectOptions);
       connectReq.useChunkedEncodingByDefault = false;
       connectReq.once("response", onResponse);
@@ -152,7 +152,7 @@ var require_tunnel = __commonJS({
         connectReq.removeAllListeners();
         socket.removeAllListeners();
         if (res.statusCode !== 200) {
-          debug2(
+          debug3(
             "tunneling socket could not be established, statusCode=%d",
             res.statusCode
           );
@@ -164,7 +164,7 @@ var require_tunnel = __commonJS({
           return;
         }
         if (head.length > 0) {
-          debug2("got illegal response body from proxy");
+          debug3("got illegal response body from proxy");
           socket.destroy();
           var error2 = new Error("got illegal response body from proxy");
           error2.code = "ECONNRESET";
@@ -172,13 +172,13 @@ var require_tunnel = __commonJS({
           self.removeSocket(placeholder);
           return;
         }
-        debug2("tunneling connection has established");
+        debug3("tunneling connection has established");
         self.sockets[self.sockets.indexOf(placeholder)] = socket;
         return cb(socket);
       }
       function onError(cause) {
         connectReq.removeAllListeners();
-        debug2(
+        debug3(
           "tunneling socket could not be established, cause=%s\n",
           cause.message,
           cause.stack
@@ -240,9 +240,9 @@ var require_tunnel = __commonJS({
       }
       return target;
     }
-    var debug2;
+    var debug3;
     if (process.env.NODE_DEBUG && /\btunnel\b/.test(process.env.NODE_DEBUG)) {
-      debug2 = function() {
+      debug3 = function() {
         var args = Array.prototype.slice.call(arguments);
         if (typeof args[0] === "string") {
           args[0] = "TUNNEL: " + args[0];
@@ -252,10 +252,10 @@ var require_tunnel = __commonJS({
         console.error.apply(console, args);
       };
     } else {
-      debug2 = function() {
+      debug3 = function() {
       };
     }
-    exports2.debug = debug2;
+    exports2.debug = debug3;
   }
 });
 
@@ -18958,22 +18958,22 @@ var require_lib = __commonJS({
       return new (P || (P = Promise))(function(resolve, reject) {
         function fulfilled(value) {
           try {
-            step(generator.next(value));
+            step2(generator.next(value));
           } catch (e) {
             reject(e);
           }
         }
         function rejected(value) {
           try {
-            step(generator["throw"](value));
+            step2(generator["throw"](value));
           } catch (e) {
             reject(e);
           }
         }
-        function step(result) {
+        function step2(result) {
           result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
         }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
+        step2((generator = generator.apply(thisArg, _arguments || [])).next());
       });
     };
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -19215,12 +19215,12 @@ var require_lib = __commonJS({
             throw new Error("Client has already been disposed.");
           }
           const parsedUrl = new URL(requestUrl);
-          let info2 = this._prepareRequest(verb, parsedUrl, headers);
+          let info3 = this._prepareRequest(verb, parsedUrl, headers);
           const maxTries = this._allowRetries && RetryableHttpVerbs.includes(verb) ? this._maxRetries + 1 : 1;
           let numTries = 0;
           let response;
           do {
-            response = yield this.requestRaw(info2, data);
+            response = yield this.requestRaw(info3, data);
             if (response && response.message && response.message.statusCode === HttpCodes2.Unauthorized) {
               let authenticationHandler;
               for (const handler2 of this.handlers) {
@@ -19230,7 +19230,7 @@ var require_lib = __commonJS({
                 }
               }
               if (authenticationHandler) {
-                return authenticationHandler.handleAuthentication(this, info2, data);
+                return authenticationHandler.handleAuthentication(this, info3, data);
               } else {
                 return response;
               }
@@ -19253,8 +19253,8 @@ var require_lib = __commonJS({
                   }
                 }
               }
-              info2 = this._prepareRequest(verb, parsedRedirectUrl, headers);
-              response = yield this.requestRaw(info2, data);
+              info3 = this._prepareRequest(verb, parsedRedirectUrl, headers);
+              response = yield this.requestRaw(info3, data);
               redirectsRemaining--;
             }
             if (!response.message.statusCode || !HttpResponseRetryCodes2.includes(response.message.statusCode)) {
@@ -19283,7 +19283,7 @@ var require_lib = __commonJS({
        * @param info
        * @param data
        */
-      requestRaw(info2, data) {
+      requestRaw(info3, data) {
         return __awaiter3(this, void 0, void 0, function* () {
           return new Promise((resolve, reject) => {
             function callbackForResult(err, res) {
@@ -19295,7 +19295,7 @@ var require_lib = __commonJS({
                 resolve(res);
               }
             }
-            this.requestRawWithCallback(info2, data, callbackForResult);
+            this.requestRawWithCallback(info3, data, callbackForResult);
           });
         });
       }
@@ -19305,12 +19305,12 @@ var require_lib = __commonJS({
        * @param data
        * @param onResult
        */
-      requestRawWithCallback(info2, data, onResult) {
+      requestRawWithCallback(info3, data, onResult) {
         if (typeof data === "string") {
-          if (!info2.options.headers) {
-            info2.options.headers = {};
+          if (!info3.options.headers) {
+            info3.options.headers = {};
           }
-          info2.options.headers["Content-Length"] = Buffer.byteLength(data, "utf8");
+          info3.options.headers["Content-Length"] = Buffer.byteLength(data, "utf8");
         }
         let callbackCalled = false;
         function handleResult(err, res) {
@@ -19319,7 +19319,7 @@ var require_lib = __commonJS({
             onResult(err, res);
           }
         }
-        const req = info2.httpModule.request(info2.options, (msg) => {
+        const req = info3.httpModule.request(info3.options, (msg) => {
           const res = new HttpClientResponse(msg);
           handleResult(void 0, res);
         });
@@ -19331,7 +19331,7 @@ var require_lib = __commonJS({
           if (socket) {
             socket.end();
           }
-          handleResult(new Error(`Request timeout: ${info2.options.path}`));
+          handleResult(new Error(`Request timeout: ${info3.options.path}`));
         });
         req.on("error", function(err) {
           handleResult(err);
@@ -19367,27 +19367,27 @@ var require_lib = __commonJS({
         return this._getProxyAgentDispatcher(parsedUrl, proxyUrl);
       }
       _prepareRequest(method, requestUrl, headers) {
-        const info2 = {};
-        info2.parsedUrl = requestUrl;
-        const usingSsl = info2.parsedUrl.protocol === "https:";
-        info2.httpModule = usingSsl ? https : http;
+        const info3 = {};
+        info3.parsedUrl = requestUrl;
+        const usingSsl = info3.parsedUrl.protocol === "https:";
+        info3.httpModule = usingSsl ? https : http;
         const defaultPort = usingSsl ? 443 : 80;
-        info2.options = {};
-        info2.options.host = info2.parsedUrl.hostname;
-        info2.options.port = info2.parsedUrl.port ? parseInt(info2.parsedUrl.port) : defaultPort;
-        info2.options.path = (info2.parsedUrl.pathname || "") + (info2.parsedUrl.search || "");
-        info2.options.method = method;
-        info2.options.headers = this._mergeHeaders(headers);
+        info3.options = {};
+        info3.options.host = info3.parsedUrl.hostname;
+        info3.options.port = info3.parsedUrl.port ? parseInt(info3.parsedUrl.port) : defaultPort;
+        info3.options.path = (info3.parsedUrl.pathname || "") + (info3.parsedUrl.search || "");
+        info3.options.method = method;
+        info3.options.headers = this._mergeHeaders(headers);
         if (this.userAgent != null) {
-          info2.options.headers["user-agent"] = this.userAgent;
+          info3.options.headers["user-agent"] = this.userAgent;
         }
-        info2.options.agent = this._getAgent(info2.parsedUrl);
+        info3.options.agent = this._getAgent(info3.parsedUrl);
         if (this.handlers) {
           for (const handler2 of this.handlers) {
-            handler2.prepareRequest(info2.options);
+            handler2.prepareRequest(info3.options);
           }
         }
-        return info2;
+        return info3;
       }
       _mergeHeaders(headers) {
         if (this.requestOptions && this.requestOptions.headers) {
@@ -19604,7 +19604,7 @@ var require_dist = __commonJS({
   "node_modules/content-type/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.format = format;
+    exports2.format = format2;
     exports2.parse = parse3;
     var TEXT_REGEXP = /^[\u0009\u0020-\u007e\u0080-\u00ff]*$/;
     var TOKEN_REGEXP = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
@@ -19616,7 +19616,7 @@ var require_dist = __commonJS({
       C.prototype = /* @__PURE__ */ Object.create(null);
       return C;
     })();
-    function format(obj) {
+    function format2(obj) {
       const { type, parameters } = obj;
       if (!type || !TYPE_REGEXP.test(type)) {
         throw new TypeError(`Invalid type: ${type}`);
@@ -19761,6 +19761,9 @@ function issueCommand(command, properties, message) {
   const cmd = new Command(command, properties, message);
   process.stdout.write(cmd.toString() + os.EOL);
 }
+function issue(name, message = "") {
+  issueCommand(name, {}, message);
+}
 var CMD_STRING = "::";
 var Command = class {
   constructor(command, properties, message) {
@@ -19899,22 +19902,22 @@ var __awaiter = function(thisArg, _arguments, P, generator) {
   return new (P || (P = Promise))(function(resolve, reject) {
     function fulfilled(value) {
       try {
-        step(generator.next(value));
+        step2(generator.next(value));
       } catch (e) {
         reject(e);
       }
     }
     function rejected(value) {
       try {
-        step(generator["throw"](value));
+        step2(generator["throw"](value));
       } catch (e) {
         reject(e);
       }
     }
-    function step(result) {
+    function step2(result) {
       result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
     }
-    step((generator = generator.apply(thisArg, _arguments || [])).next());
+    step2((generator = generator.apply(thisArg, _arguments || [])).next());
   });
 };
 var { access, appendFile, writeFile } = import_fs.promises;
@@ -20193,6 +20196,9 @@ var ExitCode;
   ExitCode2[ExitCode2["Success"] = 0] = "Success";
   ExitCode2[ExitCode2["Failure"] = 1] = "Failure";
 })(ExitCode || (ExitCode = {}));
+function setSecret(secret) {
+  issueCommand("add-mask", {}, secret);
+}
 function getInput(name, options) {
   const val = process.env[`INPUT_${name.replace(/ /g, "_").toUpperCase()}`] || "";
   if (options && options.required && !val) {
@@ -20215,6 +20221,9 @@ function setFailed(message) {
   process.exitCode = ExitCode.Failure;
   error(message);
 }
+function debug(message) {
+  issueCommand("debug", {}, message);
+}
 function error(message, properties = {}) {
   issueCommand("error", toCommandProperties(properties), message instanceof Error ? message.toString() : message);
 }
@@ -20226,6 +20235,12 @@ function notice(message, properties = {}) {
 }
 function info(message) {
   process.stdout.write(message + os4.EOL);
+}
+function startGroup(name) {
+  issue("group", name);
+}
+function endGroup() {
+  issue("endgroup");
 }
 
 // node_modules/@actions/github/lib/context.js
@@ -20291,22 +20306,22 @@ var __awaiter2 = function(thisArg, _arguments, P, generator) {
   return new (P || (P = Promise))(function(resolve, reject) {
     function fulfilled(value) {
       try {
-        step(generator.next(value));
+        step2(generator.next(value));
       } catch (e) {
         reject(e);
       }
     }
     function rejected(value) {
       try {
-        step(generator["throw"](value));
+        step2(generator["throw"](value));
       } catch (e) {
         reject(e);
       }
     }
-    function step(result) {
+    function step2(result) {
       result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
     }
-    step((generator = generator.apply(thisArg, _arguments || [])).next());
+    step2((generator = generator.apply(thisArg, _arguments || [])).next());
   });
 };
 function getAuthString(token, options) {
@@ -20531,10 +20546,10 @@ function merge(defaults2, route, options) {
   if (options.url === "/graphql") {
     if (defaults2 && defaults2.mediaType.previews?.length) {
       mergedOptions.mediaType.previews = defaults2.mediaType.previews.filter(
-        (preview) => !mergedOptions.mediaType.previews.includes(preview)
+        (preview2) => !mergedOptions.mediaType.previews.includes(preview2)
       ).concat(mergedOptions.mediaType.previews);
     }
-    mergedOptions.mediaType.previews = (mergedOptions.mediaType.previews || []).map((preview) => preview.replace(/-preview/, ""));
+    mergedOptions.mediaType.previews = (mergedOptions.mediaType.previews || []).map((preview2) => preview2.replace(/-preview/, ""));
   }
   return mergedOptions;
 }
@@ -20725,7 +20740,7 @@ function parse(options) {
   if (!isBinaryRequest) {
     if (options.mediaType.format) {
       headers.accept = headers.accept.split(/,/).map(
-        (format) => format.replace(
+        (format2) => format2.replace(
           /application\/vnd(\.\w+)(\.v3)?(\.\w+)?(\+json)?$/,
           `application/vnd$1$2.${options.mediaType.format}`
         )
@@ -20734,9 +20749,9 @@ function parse(options) {
     if (url.endsWith("/graphql")) {
       if (options.mediaType.previews?.length) {
         const previewsFromAcceptHeader = headers.accept.match(/(?<![\w-])[\w-]+(?=-preview)/g) || [];
-        headers.accept = previewsFromAcceptHeader.concat(options.mediaType.previews).map((preview) => {
-          const format = options.mediaType.format ? `.${options.mediaType.format}` : "+json";
-          return `application/vnd.github.${preview}-preview${format}`;
+        headers.accept = previewsFromAcceptHeader.concat(options.mediaType.previews).map((preview2) => {
+          const format2 = options.mediaType.format ? `.${options.mediaType.format}` : "+json";
+          return `application/vnd.github.${preview2}-preview${format2}`;
         }).join(",");
       }
     }
@@ -24212,8 +24227,113 @@ function getOctokit(token, options, ...additionalPlugins) {
   return new GitHubWithPlugins(getOctokitOptions(token, options));
 }
 
+// src/log.ts
+var startedAt = Date.now();
+function elapsed() {
+  return `${((Date.now() - startedAt) / 1e3).toFixed(1)}s`;
+}
+function info2(message) {
+  info(`[${elapsed()}] ${message}`);
+}
+function debug2(message) {
+  debug(`[${elapsed()}] ${message}`);
+}
+function warn(message) {
+  warning(message);
+}
+function details(title, fields) {
+  const entries = Object.entries(fields).filter(([, value]) => value !== void 0);
+  const width = Math.max(0, ...entries.map(([key]) => key.length));
+  startGroup(title);
+  for (const [key, value] of entries) info(`${key.padEnd(width)}  ${format(value)}`);
+  endGroup();
+}
+function format(value) {
+  if (typeof value === "string") return value;
+  if (value === null) return "null";
+  if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+async function step(name, fn) {
+  startGroup(`\u25B8 ${name}`);
+  const began = Date.now();
+  try {
+    const value = await fn();
+    info(`\u2713 ${name} \u2014 ${((Date.now() - began) / 1e3).toFixed(1)}s`);
+    return value;
+  } catch (error2) {
+    info(`\u2717 ${name} \u2014 ${((Date.now() - began) / 1e3).toFixed(1)}s`);
+    info(describeError(error2));
+    throw error2;
+  } finally {
+    endGroup();
+  }
+}
+function describeError(error2) {
+  const lines = [];
+  for (let current = error2, depth = 0; current !== void 0 && depth < 5; depth += 1) {
+    const indent = "  ".repeat(depth);
+    lines.push(`${indent}${depth === 0 ? "" : "caused by: "}${headline(current)}`);
+    const extra = systemFields(current);
+    if (extra.length > 0) lines.push(`${indent}  (${extra.join(", ")})`);
+    if (!(current instanceof Error)) break;
+    current = current.cause;
+  }
+  const frames = (error2 instanceof Error ? error2.stack ?? "" : "").split("\n").slice(1, 4).map((frame) => frame.trim()).filter(Boolean);
+  if (frames.length > 0) lines.push(`  stack: ${frames.join(" | ")}`);
+  return lines.join("\n");
+}
+function headline(error2) {
+  if (!(error2 instanceof Error)) return `${typeof error2}: ${String(error2)}`;
+  return `${error2.name}: ${error2.message}`;
+}
+function systemFields(error2) {
+  if (typeof error2 !== "object" || error2 === null) return [];
+  const record = error2;
+  const keys = ["code", "errno", "syscall", "hostname", "address", "port", "status"];
+  return keys.filter((key) => record[key] !== void 0).map((key) => `${key}=${String(record[key])}`);
+}
+function networkHint(error2) {
+  switch (findCode(error2)) {
+    case "ENOTFOUND":
+    case "EAI_AGAIN":
+      return "The API host could not be resolved. Check `api-url` for a typo, and that a self-hosted Ritim is reachable from GitHub-hosted runners.";
+    case "ECONNREFUSED":
+      return "The API host resolved but refused the connection. It is likely a wrong port, or a server that is down.";
+    case "UND_ERR_CONNECT_TIMEOUT":
+    case "ETIMEDOUT":
+      return "The connection timed out \u2014 a firewall or IP allowlist that does not include GitHub runners will do this.";
+    case "CERT_HAS_EXPIRED":
+    case "DEPTH_ZERO_SELF_SIGNED_CERT":
+    case "UNABLE_TO_VERIFY_LEAF_SIGNATURE":
+      return "The TLS certificate could not be verified. A corporate proxy or a self-signed certificate on a self-hosted Ritim is the usual cause.";
+    case "ECONNRESET":
+    case "UND_ERR_SOCKET":
+      return "The connection was reset mid-request, which usually means a proxy or load balancer closed it.";
+    default:
+      return void 0;
+  }
+}
+function findCode(error2) {
+  for (let current = error2, depth = 0; current !== void 0 && depth < 5; depth += 1) {
+    const code = current?.code;
+    if (typeof code === "string") return code;
+    if (!(current instanceof Error)) return void 0;
+    current = current.cause;
+  }
+  return void 0;
+}
+function preview(text, limit = 500) {
+  const collapsed = text.replace(/\s+/g, " ").trim();
+  return collapsed.length <= limit ? collapsed : `${collapsed.slice(0, limit)}\u2026 (${text.length} bytes)`;
+}
+
 // src/api.ts
 var POLL_INTERVAL_MS = 3e3;
+var REQUEST_TIMEOUT_MS = 3e4;
+var MAX_ATTEMPTS = 3;
+var RETRY_BACKOFF_MS = 2e3;
 var RitimApiError = class extends Error {
   constructor(status, message, issues = []) {
     super(message);
@@ -24223,6 +24343,16 @@ var RitimApiError = class extends Error {
   }
   status;
   issues;
+};
+var RitimNetworkError = class extends Error {
+  constructor(method, url, cause) {
+    super(`Could not reach Ritim (${method} ${url})`, { cause });
+    this.method = method;
+    this.url = url;
+    this.name = "RitimNetworkError";
+  }
+  method;
+  url;
 };
 var RitimClient = class {
   constructor(baseUrl2, secret) {
@@ -24247,22 +24377,68 @@ var RitimClient = class {
    */
   async waitForTrigger(triggerId, timeoutMs) {
     const deadline = Date.now() + timeoutMs;
+    let polls = 0;
+    info2(`Waiting up to ${Math.round(timeoutMs / 1e3)}s for audit ${triggerId} to finish.`);
     for (; ; ) {
       const state = await this.trigger(triggerId);
-      if (state.status !== "running" || Date.now() >= deadline) return state;
-      await sleep(Math.min(POLL_INTERVAL_MS, Math.max(0, deadline - Date.now())));
+      polls += 1;
+      if (state.status !== "running" || Date.now() >= deadline) {
+        info2(
+          `Audit ${triggerId} is ${state.status} after ${polls} ${polls === 1 ? "poll" : "polls"}.`
+        );
+        return state;
+      }
+      const remaining = Math.max(0, deadline - Date.now());
+      info2(`Still running (poll ${polls}, ${Math.round(remaining / 1e3)}s left).`);
+      await sleep(Math.min(POLL_INTERVAL_MS, remaining));
     }
   }
   async request(method, path, body) {
-    const response = await fetch(new URL(path, this.baseUrl), {
-      method,
-      headers: {
-        authorization: `Bearer ${this.secret}`,
-        ...body === void 0 ? {} : { "content-type": "application/json" }
-      },
-      body: body === void 0 ? void 0 : JSON.stringify(body)
-    });
-    const payload = await response.json().catch(() => void 0);
+    const url = new URL(path, this.baseUrl);
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await this.attempt(method, url, body, attempt);
+      } catch (error2) {
+        if (!(error2 instanceof RitimNetworkError) || attempt >= MAX_ATTEMPTS) throw error2;
+        const delay = RETRY_BACKOFF_MS * attempt;
+        warn(
+          `${method} ${url.pathname} failed to connect (attempt ${attempt}/${MAX_ATTEMPTS}), retrying in ${delay / 1e3}s.
+${describeError(error2)}`
+        );
+        await sleep(delay);
+      }
+    }
+  }
+  async attempt(method, url, body, attempt) {
+    const began = Date.now();
+    info2(`\u2192 ${method} ${url.href}${attempt > 1 ? ` (attempt ${attempt})` : ""}`);
+    if (body !== void 0) debug2(`  request body: ${preview(JSON.stringify(body), 1e3)}`);
+    let response;
+    try {
+      response = await fetch(url, {
+        method,
+        headers: {
+          authorization: `Bearer ${this.secret}`,
+          accept: "application/json",
+          "user-agent": "ritim-pr-review-action",
+          ...body === void 0 ? {} : { "content-type": "application/json" }
+        },
+        body: body === void 0 ? void 0 : JSON.stringify(body),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+      });
+    } catch (error2) {
+      throw new RitimNetworkError(method, url.href, error2);
+    }
+    const took = Date.now() - began;
+    const text = await response.text().catch(() => "");
+    info2(`\u2190 ${response.status} ${response.statusText} in ${took}ms (${text.length} bytes)`);
+    debug2(`  response body: ${preview(text, 1e3)}`);
+    let payload;
+    try {
+      payload = text === "" ? void 0 : JSON.parse(text);
+    } catch {
+      payload = void 0;
+    }
     if (!response.ok) {
       throw new RitimApiError(
         response.status,
@@ -24271,7 +24447,10 @@ var RitimClient = class {
       );
     }
     if (payload === void 0) {
-      throw new RitimApiError(response.status, "Ritim returned a response that was not JSON");
+      throw new RitimApiError(
+        response.status,
+        `Ritim returned a response that was not JSON: ${preview(text, 200) || "(empty body)"}`
+      );
     }
     return payload;
   }
@@ -24458,7 +24637,24 @@ function isFromFork(pr) {
   return head === void 0 || head !== base;
 }
 var canComment = true;
+function logEnvironment() {
+  details("Environment", {
+    action: `${process.env.GITHUB_ACTION_REPOSITORY ?? "ritim-io/pr-review-action"}@${process.env.GITHUB_ACTION_REF ?? "unknown"}`,
+    node: process.version,
+    platform: `${process.platform} ${process.arch}`,
+    runner: process.env.RUNNER_NAME ?? "unknown",
+    repository: process.env.GITHUB_REPOSITORY,
+    event: `${context2.eventName}${context2.payload.action ? `.${context2.payload.action}` : ""}`,
+    workflow: context2.workflow,
+    runId: context2.runId,
+    // A proxy in the path changes what `fetch` does; an empty value here is
+    // itself the answer when the request fails to connect.
+    proxy: process.env.HTTPS_PROXY ?? process.env.https_proxy ?? "(none)",
+    noProxy: process.env.NO_PROXY ?? process.env.no_proxy ?? "(none)"
+  });
+}
 async function run() {
+  logEnvironment();
   const pr = context2.payload.pull_request;
   if (!pr) {
     soft(
@@ -24472,13 +24668,33 @@ async function run() {
     );
     return;
   }
-  const apiUrl = getInput("api-url") || "https://api.ritim.io";
+  const apiUrl = getInput("api-url").trim() || "https://api.ritim.io";
   const secret = getInput("project-secret").trim();
   const previewUrl = getInput("preview-url").trim();
   const domain = getInput("domain").trim();
   const shouldWait = booleanInput("wait", true);
   const timeoutSeconds = timeoutInput();
   canComment = booleanInput("comment", true);
+  if (secret) setSecret(secret);
+  details("Inputs", {
+    "api-url": apiUrl,
+    "preview-url": previewUrl || "(missing)",
+    "project-secret": describeSecret(secret),
+    domain: domain || "(unset \u2014 the project must have a single site)",
+    strategies: getInput("strategies").trim() || "mobile (default)",
+    wait: shouldWait,
+    timeout: `${timeoutSeconds}s`,
+    comment: canComment,
+    "github-token": getInput("github-token") ? "present" : "(missing)",
+    "fail-on-error": failOnError()
+  });
+  details("Pull request", {
+    number: pr.number,
+    state: toState(pr),
+    author: String(pr.user?.login ?? ""),
+    headSha: String(pr.head?.sha ?? "").slice(0, 12),
+    baseRepo: pr.base?.repo?.full_name
+  });
   if (!secret) {
     setFailed(
       "`project-secret` is required. Take it from the Ritim dashboard (Settings \u2192 API secret) and store it as a repository secret."
@@ -24489,32 +24705,55 @@ async function run() {
     setFailed("`preview-url` is required. Pass the deployment URL to audit.");
     return;
   }
-  const strategies = parseStrategies(getInput("strategies"));
-  const client = new RitimClient(apiUrl, secret);
-  const report = await client.report({
-    schemaVersion: SCHEMA_VERSION,
-    repository: `${context2.repo.owner}/${context2.repo.repo}`,
-    number: pr.number,
-    title: String(pr.title ?? ""),
-    state: toState(pr),
-    author: String(pr.user?.login ?? ""),
-    openedAt: String(pr.created_at ?? (/* @__PURE__ */ new Date()).toISOString()),
-    commitSha: String(pr.head?.sha ?? ""),
-    previewUrl,
-    // Omitted rather than sent empty, so an unset `${{ vars.X }}` does not look
-    // deliberate.
-    ...domain ? { domain } : {},
-    ...strategies ? { strategies } : {}
-  });
-  setOutput("trigger-id", report.triggerId);
-  info(`Reported ${report.triggerId}${report.deduplicated ? " (already measured)" : ""}`);
-  if (!shouldWait) {
-    setOutput("status", report.status);
+  if (!isHttpUrl(apiUrl)) {
+    setFailed(`\`api-url\` must be an absolute http(s) URL, got "${apiUrl}".`);
     return;
   }
-  const trigger = await client.waitForTrigger(report.triggerId, timeoutSeconds * 1e3);
+  if (!isHttpUrl(previewUrl)) {
+    setFailed(
+      `\`preview-url\` must be an absolute http(s) URL, got "${previewUrl}". A deploy step that produced no URL usually leaves this empty or set to a bare host.`
+    );
+    return;
+  }
+  const strategies = parseStrategies(getInput("strategies"));
+  const client = new RitimClient(apiUrl, secret);
+  const report = await step(
+    `Report the preview to ${apiUrl}`,
+    () => client.report({
+      schemaVersion: SCHEMA_VERSION,
+      repository: `${context2.repo.owner}/${context2.repo.repo}`,
+      number: pr.number,
+      title: String(pr.title ?? ""),
+      state: toState(pr),
+      author: String(pr.user?.login ?? ""),
+      openedAt: String(pr.created_at ?? (/* @__PURE__ */ new Date()).toISOString()),
+      commitSha: String(pr.head?.sha ?? ""),
+      previewUrl,
+      // Omitted rather than sent empty, so an unset `${{ vars.X }}` does not
+      // look deliberate.
+      ...domain ? { domain } : {},
+      ...strategies ? { strategies } : {}
+    })
+  );
+  setOutput("trigger-id", report.triggerId);
+  details("Reported", {
+    triggerId: report.triggerId,
+    pullRequestId: report.pullRequestId,
+    status: report.status,
+    deduplicated: report.deduplicated ? "yes \u2014 this commit was already measured, so no new audit was started" : "no"
+  });
+  if (!shouldWait) {
+    setOutput("status", report.status);
+    info2("`wait` is false, so this run stops here. The audit continues on Ritim.");
+    return;
+  }
+  const trigger = await step(
+    "Wait for the audit",
+    () => client.waitForTrigger(report.triggerId, timeoutSeconds * 1e3)
+  );
   setOutput("status", trigger.status);
   setOutput("result", JSON.stringify(trigger.result));
+  logOutcomes(trigger);
   if (trigger.status === "running") {
     warning(
       `The audit was still running after ${timeoutSeconds}s. It will finish on Ritim's side; raise \`timeout\` if you want the comment on this run.`
@@ -24523,9 +24762,40 @@ async function run() {
   }
   if (canComment && !report.deduplicated) {
     await comment(trigger);
+  } else {
+    info2(
+      canComment ? "Comment skipped: this commit was already measured, so the existing comment stands." : "Comment skipped: `comment` is false."
+    );
   }
   if (trigger.status === "failed") {
     soft(`The audit failed: ${trigger.error ?? "no result was produced"}`);
+  }
+}
+function isHttpUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+function describeSecret(secret) {
+  if (!secret) return "(missing)";
+  if (!secret.startsWith("psk_"))
+    return `set, ${secret.length} chars, but does not start with "psk_" \u2014 is this the right secret?`;
+  return `set, ${secret.length} chars, psk_\u2026`;
+}
+function logOutcomes(trigger) {
+  const outcomes = trigger.result?.outcomes ?? [];
+  details("Audit", {
+    status: trigger.status,
+    error: trigger.error ?? void 0,
+    strategies: outcomes.length === 0 ? "(none reported)" : void 0
+  });
+  for (const outcome of outcomes) {
+    info2(
+      outcome.ok ? `${outcome.strategy}: score ${outcome.result?.performanceScore ?? "n/a"} for ${outcome.result?.finalUrl ?? ""}` : `${outcome.strategy}: failed \u2014 ${outcome.error ?? "no reason given"}`
+    );
   }
 }
 async function comment(trigger) {
@@ -24537,6 +24807,7 @@ async function comment(trigger) {
   }
   try {
     const octokit = getOctokit(token);
+    info2(`Posting the comment on ${context2.repo.owner}/${context2.repo.repo}#${context2.payload.pull_request?.number}.`);
     const id = await upsertComment(
       octokit,
       {
@@ -24547,7 +24818,10 @@ async function comment(trigger) {
       renderComment(trigger)
     );
     setOutput("comment-id", id);
+    info2(`Comment ${id} is up to date.`);
   } catch (error2) {
+    debug2(`Commenting failed:
+${describeError(error2)}`);
     canComment = false;
     if (isPermissionDenied(error2)) {
       warning(
@@ -24562,10 +24836,25 @@ function isPermissionDenied(error2) {
   const status = typeof error2 === "object" && error2 !== null ? error2.status : void 0;
   return status === 403 || status === 404;
 }
-run().catch((error2) => {
-  soft(error2 instanceof RitimApiError ? ritimMessage(error2) : errorMessage(error2));
+run().then(() => {
+  info2("Done.");
+}).catch((error2) => {
+  startGroup("\u2717 Failure detail");
+  info(describeError(error2));
+  endGroup();
+  soft(errorMessage(error2));
 });
 function errorMessage(error2) {
+  if (error2 instanceof RitimApiError) return ritimMessage(error2);
+  if (error2 instanceof RitimNetworkError) {
+    const hint = networkHint(error2);
+    const cause = error2.cause instanceof Error ? error2.cause.message : void 0;
+    return [
+      `${error2.message}: ${cause ?? "the connection failed"}.`,
+      hint,
+      'The expanded "Failure detail" group above has the underlying error code.'
+    ].filter(Boolean).join(" ");
+  }
   return error2 instanceof Error ? error2.message : String(error2);
 }
 function ritimMessage(error2) {
