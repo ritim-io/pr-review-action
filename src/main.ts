@@ -164,6 +164,8 @@ async function run(): Promise<void> {
     return;
   }
 
+  core.notice('ready to invoke ' + previewUrl + ' on ' + apiUrl)
+  
   const strategies = parseStrategies(core.getInput('strategies'));
   const client = new RitimClient(apiUrl, secret);
 
