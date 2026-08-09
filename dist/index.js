@@ -24364,6 +24364,10 @@ var RitimClient = class {
   async report(body) {
     return this.request("POST", "/api/v1/pull-requests", body);
   }
+  /** One indexed update. No audit, no poll — see the closed path in `main`. */
+  async close(body) {
+    return this.request("PATCH", "/api/v1/pull-requests", body);
+  }
   async trigger(triggerId) {
     return this.request(
       "GET",
@@ -24701,12 +24705,17 @@ async function run() {
     );
     return;
   }
-  if (!previewUrl) {
-    setFailed("`preview-url` is required. Pass the deployment URL to audit.");
-    return;
-  }
   if (!isHttpUrl(apiUrl)) {
     setFailed(`\`api-url\` must be an absolute http(s) URL, got "${apiUrl}".`);
+    return;
+  }
+  const client = new RitimClient(apiUrl, secret);
+  if (context2.payload.action === "closed") {
+    await closePullRequest(client, pr);
+    return;
+  }
+  if (!previewUrl) {
+    setFailed("`preview-url` is required. Pass the deployment URL to audit.");
     return;
   }
   if (!isHttpUrl(previewUrl)) {
@@ -24716,7 +24725,6 @@ async function run() {
     return;
   }
   const strategies = parseStrategies(getInput("strategies"));
-  const client = new RitimClient(apiUrl, secret);
   const report = await step(
     `Report the preview to ${apiUrl}`,
     () => client.report({
@@ -24769,6 +24777,29 @@ async function run() {
   }
   if (trigger.status === "failed") {
     soft(`The audit failed: ${trigger.error ?? "no result was produced"}`);
+  }
+}
+async function closePullRequest(client, pr) {
+  const state = toState(pr);
+  try {
+    const closed = await step(
+      `Mark #${pr.number} as ${state}`,
+      () => client.close({
+        schemaVersion: SCHEMA_VERSION,
+        repository: `${context2.repo.owner}/${context2.repo.repo}`,
+        number: pr.number,
+        state
+      })
+    );
+    details("Closed", { pullRequestId: closed.pullRequestId, state: closed.state });
+  } catch (error2) {
+    if (error2 instanceof RitimApiError && error2.status === 404) {
+      notice(
+        `#${pr.number} was never reported to Ritim, so there was nothing to mark as ${state}. Pull requests opened before this action was installed are only recorded from their next push.`
+      );
+      return;
+    }
+    throw error2;
   }
 }
 function isHttpUrl(value) {

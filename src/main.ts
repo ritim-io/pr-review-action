@@ -211,15 +211,24 @@ async function run(): Promise<void> {
     return;
   }
 
-  if (!previewUrl) {
-    core.setFailed('`preview-url` is required. Pass the deployment URL to audit.');
-    return;
-  }
-
   // Caught here rather than as a malformed request later: `new URL()` inside
   // the client would fail with "Invalid URL" and no clue which input was wrong.
   if (!isHttpUrl(apiUrl)) {
     core.setFailed(`\`api-url\` must be an absolute http(s) URL, got "${apiUrl}".`);
+    return;
+  }
+
+  const client = new RitimClient(apiUrl, secret);
+
+  // Before `preview-url` is required, because on this event there is none: the
+  // deployment is torn down and the deploy step usually did not run.
+  if (github.context.payload.action === 'closed') {
+    await closePullRequest(client, pr as Parameters<typeof closePullRequest>[1]);
+    return;
+  }
+
+  if (!previewUrl) {
+    core.setFailed('`preview-url` is required. Pass the deployment URL to audit.');
     return;
   }
 
@@ -232,7 +241,6 @@ async function run(): Promise<void> {
   }
 
   const strategies = parseStrategies(core.getInput('strategies'));
-  const client = new RitimClient(apiUrl, secret);
 
   const report = await log.step(`Report the preview to ${apiUrl}`, () =>
     client.report({
@@ -298,6 +306,47 @@ async function run(): Promise<void> {
 
   if (trigger.status === 'failed') {
     soft(`The audit failed: ${trigger.error ?? 'no result was produced'}`);
+  }
+}
+
+/**
+ * Records the end of a pull request's life: one PATCH, no audit, about a
+ * second.
+ *
+ * Merging is usually the last event a pull request gets, and it arrives with
+ * nothing to measure — so this path exists to stop `preview-url is required`
+ * from failing every merge, which is what a workflow following the documented
+ * `types:` list used to do.
+ */
+async function closePullRequest(
+  client: RitimClient,
+  pr: { number: number; state?: string; draft?: boolean; merged?: boolean },
+): Promise<void> {
+  const state = toState(pr);
+
+  try {
+    const closed = await log.step(`Mark #${pr.number} as ${state}`, () =>
+      client.close({
+        schemaVersion: SCHEMA_VERSION,
+        repository: `${github.context.repo.owner}/${github.context.repo.repo}`,
+        number: pr.number,
+        state,
+      }),
+    );
+
+    log.details('Closed', { pullRequestId: closed.pullRequestId, state: closed.state });
+  } catch (error) {
+    // Nothing to update: this pull request predates the Action's installation,
+    // so it was never reported. Normal, and nothing the customer can fix.
+    if (error instanceof RitimApiError && error.status === 404) {
+      core.notice(
+        `#${pr.number} was never reported to Ritim, so there was nothing to mark as ${state}. ` +
+          'Pull requests opened before this action was installed are only recorded from their next push.',
+      );
+      return;
+    }
+
+    throw error;
   }
 }
 

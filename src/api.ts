@@ -1,4 +1,11 @@
-import type { ApiErrorBody, ReportBody, ReportResponse, TriggerResponse } from './contract.js';
+import type {
+  ApiErrorBody,
+  CloseBody,
+  CloseResponse,
+  ReportBody,
+  ReportResponse,
+  TriggerResponse,
+} from './contract.js';
 import * as log from './log.js';
 
 /**
@@ -59,6 +66,11 @@ export class RitimClient {
 
   async report(body: ReportBody): Promise<ReportResponse> {
     return this.request<ReportResponse>('POST', '/api/v1/pull-requests', body);
+  }
+
+  /** One indexed update. No audit, no poll — see the closed path in `main`. */
+  async close(body: CloseBody): Promise<CloseResponse> {
+    return this.request<CloseResponse>('PATCH', '/api/v1/pull-requests', body);
   }
 
   async trigger(triggerId: string): Promise<TriggerResponse> {

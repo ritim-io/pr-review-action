@@ -30,8 +30,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # However you deploy. This action does not deploy anything, and reporting
-      # before the preview is serving audits an error page.
+      # before the preview is serving audits an error page. Skipped on `closed`:
+      # there is nothing left to deploy, and the action does not need a URL to
+      # record the merge.
       - id: deploy
+        if: github.event.action != 'closed'
         run: echo "url=https://preview-123.example.com" >> "$GITHUB_OUTPUT"
 
       - uses: ritim-io/ritim-action@v1
@@ -53,7 +56,7 @@ repository secret named `RITIM_PROJECT_SECRET`.
 | Input            | Required    | Default                | Notes                                          |
 | ---------------- | ----------- | ---------------------- | ---------------------------------------------- |
 | `project-secret` | yes         | —                      | `psk_…`, from `secrets`                        |
-| `preview-url`    | yes         | —                      | Absolute `http(s)` URL, publicly reachable     |
+| `preview-url`    | conditional | —                      | Absolute `http(s)` URL, publicly reachable. Not needed on `closed` |
 | `domain`         | conditional | —                      | Production host. See below                     |
 | `api-url`        | no          | `https://api.ritim.io` | Override for staging                           |
 | `github-token`   | no          | `${{ github.token }}`  | Never needs setting                            |
@@ -93,6 +96,13 @@ Web Vitals thresholds are defined against, which is why it is the default.
 
 ## Behaviour worth knowing
 
+**A closed pull request is recorded, not audited.** On `pull_request.closed` the
+action sends one request marking it `merged` or `closed` and exits — in about a
+second, with no preview URL, no audit and no comment. So `preview-url` is not
+required on that event, and a deploy step that correctly produced nothing does
+not fail the merge. A pull request that was never reported (opened before you
+installed the action) logs a notice and stays green.
+
 **The comment is edited, not repeated.** It is found by a hidden marker
 (`<!-- ritim-performance-report -->`), so a branch with twenty pushes has one
 comment, not twenty.
@@ -108,9 +118,9 @@ and no action can work around it. `pull_request_target` lifts it, but it runs
 workflow code from the base branch and is easy to make unsafe; do not reach for
 it without reading GitHub's guidance first.
 
-**Only a missing `project-secret` or `preview-url` fails your build.** Without
-those two there is nothing to audit and nowhere to send it, so a green step
-would be a lie. Everything else — a failed audit, a slow preview, a typo'd
+**Only a missing `project-secret` or `preview-url` fails your build**, and
+`preview-url` only on an event that audits. Without those two there is nothing
+to audit and nowhere to send it, so a green step would be a lie. Everything else — a failed audit, a slow preview, a typo'd
 toggle, a rejected secret — is a warning in the log and a green step. This
 action is advisory; a performance report that can redden a merge is a report
 people delete rather than fix. `fail-on-error: true` turns a failed audit and a

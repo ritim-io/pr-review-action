@@ -32,6 +32,24 @@ export interface ReportBody {
   strategies?: AuditStrategy[];
 }
 
+/**
+ * `PATCH /api/v1/pull-requests`. Identified by repository and number rather
+ * than by `pullRequestId`: a closed event carries no id, and the only run that
+ * ever learns one is the run that reported.
+ */
+export interface CloseBody {
+  schemaVersion: number;
+  repository: string;
+  number: number;
+  state: PullRequestState;
+}
+
+/** `200` from the close. */
+export interface CloseResponse {
+  pullRequestId: string;
+  state: PullRequestState;
+}
+
 /** `202` from the report. The audit has not run yet. */
 export interface ReportResponse {
   pullRequestId: string;
